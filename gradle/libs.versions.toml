@@ -1,0 +1,19 @@
+[versions]
+lombok = "1.18.38"
+minecraft-next-spigot = "0.1.0-SNAPSHOT"
+spigot-api = "1.12.2-R0.1-SNAPSHOT"
+placeholderapi = "2.11.6"
+adyeshach-api = "2.0.19"
+chemdah-api = "1.1.0"
+mysql-connector-j = "9.3.0"
+
+[plugins]
+
+[libraries]
+lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" }
+minecraft-next-spigot = { group = "team.idealstate.minecraft", name = "minecraft-next-spigot", version.ref = "minecraft-next-spigot" }
+spigot-api = { group = "org.spigotmc", name = "spigot-api", version.ref = "spigot-api" }
+placeholderapi = { group = "me.clip", name = "placeholderapi", version.ref = "placeholderapi" }
+adyeshach-api = { group = "ink.ptms.adyeshach", name = "api", version.ref = "adyeshach-api" }
+chemdah-api = { group = "ink.ptms.chemdah", name = "api", version.ref = "chemdah-api" }
+mysql-connector-j = { group = "com.mysql", name = "mysql-connector-j", version.ref = "mysql-connector-j" }

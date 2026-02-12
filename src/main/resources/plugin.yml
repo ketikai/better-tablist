@@ -1,0 +1,10 @@
+# noinspection YAMLSchemaValidation
+name: better-tablist
+version: '${version}'
+main: pers.ketikai.minecraft.spigot.bettertablist.BetterTablist
+load: STARTUP
+authors:
+- ketikai
+depend:
+- minecraft-next
+- PlaceholderAPI
