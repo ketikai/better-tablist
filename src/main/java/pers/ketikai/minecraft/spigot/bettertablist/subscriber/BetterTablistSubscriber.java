@@ -18,38 +18,66 @@
 
 package pers.ketikai.minecraft.spigot.bettertablist.subscriber;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.minecraft.server.v1_12_R1.ChatComponentText;
 import net.minecraft.server.v1_12_R1.EntityPlayer;
 import net.minecraft.server.v1_12_R1.IChatBaseComponent;
-import net.minecraft.server.v1_12_R1.MinecraftServer;
 import net.minecraft.server.v1_12_R1.NetworkManager;
 import net.minecraft.server.v1_12_R1.Packet;
+import net.minecraft.server.v1_12_R1.PacketPlayInAbilities;
+import net.minecraft.server.v1_12_R1.PacketPlayInAdvancements;
+import net.minecraft.server.v1_12_R1.PacketPlayInArmAnimation;
+import net.minecraft.server.v1_12_R1.PacketPlayInAutoRecipe;
+import net.minecraft.server.v1_12_R1.PacketPlayInBlockDig;
+import net.minecraft.server.v1_12_R1.PacketPlayInBlockPlace;
+import net.minecraft.server.v1_12_R1.PacketPlayInBoatMove;
+import net.minecraft.server.v1_12_R1.PacketPlayInChat;
+import net.minecraft.server.v1_12_R1.PacketPlayInClientCommand;
+import net.minecraft.server.v1_12_R1.PacketPlayInCloseWindow;
+import net.minecraft.server.v1_12_R1.PacketPlayInCustomPayload;
+import net.minecraft.server.v1_12_R1.PacketPlayInEnchantItem;
+import net.minecraft.server.v1_12_R1.PacketPlayInEntityAction;
+import net.minecraft.server.v1_12_R1.PacketPlayInFlying;
+import net.minecraft.server.v1_12_R1.PacketPlayInHeldItemSlot;
+import net.minecraft.server.v1_12_R1.PacketPlayInKeepAlive;
+import net.minecraft.server.v1_12_R1.PacketPlayInRecipeDisplayed;
+import net.minecraft.server.v1_12_R1.PacketPlayInResourcePackStatus;
+import net.minecraft.server.v1_12_R1.PacketPlayInSetCreativeSlot;
+import net.minecraft.server.v1_12_R1.PacketPlayInSettings;
+import net.minecraft.server.v1_12_R1.PacketPlayInSpectate;
+import net.minecraft.server.v1_12_R1.PacketPlayInSteerVehicle;
+import net.minecraft.server.v1_12_R1.PacketPlayInTabComplete;
+import net.minecraft.server.v1_12_R1.PacketPlayInTeleportAccept;
+import net.minecraft.server.v1_12_R1.PacketPlayInTransaction;
+import net.minecraft.server.v1_12_R1.PacketPlayInUpdateSign;
+import net.minecraft.server.v1_12_R1.PacketPlayInUseEntity;
+import net.minecraft.server.v1_12_R1.PacketPlayInUseItem;
+import net.minecraft.server.v1_12_R1.PacketPlayInVehicleMove;
+import net.minecraft.server.v1_12_R1.PacketPlayInWindowClick;
 import net.minecraft.server.v1_12_R1.PacketPlayOutPlayerInfo;
+import net.minecraft.server.v1_12_R1.PacketPlayOutPosition;
 import net.minecraft.server.v1_12_R1.PlayerConnection;
-import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_12_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.Plugin;
 import team.idealstate.sugar.logging.Log;
 import team.idealstate.sugar.next.context.ContextHolder;
 import team.idealstate.sugar.next.context.annotation.component.Subscriber;
 import team.idealstate.sugar.next.context.aware.ContextHolderAware;
 import team.idealstate.sugar.validate.annotation.NotNull;
-
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.regex.Pattern;
 
 @Subscriber
 public class BetterTablistSubscriber implements Listener, ContextHolderAware {
@@ -65,19 +93,15 @@ public class BetterTablistSubscriber implements Listener, ContextHolderAware {
     public void on(PlayerJoinEvent event) {
         EntityPlayer handle = ((CraftPlayer) event.getPlayer()).getHandle();
         PlayerConnection connection = handle.playerConnection;
-        handle.playerConnection = new BetterTablistPlayerConnection(
-                connection.player.server,
-                connection.networkManager,
-                connection.player
-        );
-//        UUID uniqueId = event.getPlayer().getUniqueId();
-//        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-//            CraftPlayer player = (CraftPlayer) Bukkit.getPlayer(uniqueId);
-//            if (player == null) {
-//                return;
-//            }
-//            player.setPlayerListName("lv.%player_level% " + player.getName());
-//        }, 1L, 20L);
+        handle.playerConnection = new BetterTablistPlayerConnection(connection);
+        //        UUID uniqueId = event.getPlayer().getUniqueId();
+        //        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+        //            CraftPlayer player = (CraftPlayer) Bukkit.getPlayer(uniqueId);
+        //            if (player == null) {
+        //                return;
+        //            }
+        //            player.setPlayerListName("lv.%player_level% " + player.getName());
+        //        }, 1L, 20L);
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -87,13 +111,14 @@ public class BetterTablistSubscriber implements Listener, ContextHolderAware {
         }
     }
 
-    public static class BetterTablistPlayerConnection extends PlayerConnection {
+    @SuppressWarnings("deprecation")
+    public static final class BetterTablistPlayerConnection extends PlayerConnection {
 
         private static final Field PACKET_PLAY_OUT_PLAYER_INFO$B;
         private static final Field PACKET_PLAY_OUT_PLAYER_INFO$PLAYER_INFO_DATA$E;
         private static final Field CHAT_COMPONENT_TEXT$B;
 
-        static  {
+        static {
             Field field = null;
             try {
                 field = PacketPlayOutPlayerInfo.class.getDeclaredField("b");
@@ -171,7 +196,6 @@ public class BetterTablistSubscriber implements Listener, ContextHolderAware {
                         Log.error(e);
                     }
                 }
-
             }
             List<IChatBaseComponent> components = root.a();
             for (IChatBaseComponent component : components) {
@@ -182,8 +206,240 @@ public class BetterTablistSubscriber implements Listener, ContextHolderAware {
             return changed ? root : null;
         }
 
-        public BetterTablistPlayerConnection(MinecraftServer minecraftserver, NetworkManager networkmanager, EntityPlayer entityplayer) {
-            super(minecraftserver, networkmanager, entityplayer);
+        private final PlayerConnection delegate;
+
+        public BetterTablistPlayerConnection(PlayerConnection delegate) {
+            super(delegate.player.server, delegate.networkManager, delegate.player);
+            this.delegate = delegate;
+        }
+
+        @Override
+        public CraftPlayer getPlayer() {
+            return delegate.getPlayer();
+        }
+
+        @Override
+        public void e() {
+            delegate.e();
+        }
+
+        @Override
+        public void syncPosition() {
+            delegate.syncPosition();
+        }
+
+        @Override
+        public NetworkManager a() {
+            return delegate.a();
+        }
+
+        @Deprecated
+        @Override
+        public void disconnect(IChatBaseComponent ichatbasecomponent) {
+            delegate.disconnect(ichatbasecomponent);
+        }
+
+        @Override
+        public void disconnect(String s) {
+            delegate.disconnect(s);
+        }
+
+        @Override
+        public void a(PacketPlayInSteerVehicle packetplayinsteervehicle) {
+            delegate.a(packetplayinsteervehicle);
+        }
+
+        @Override
+        public void a(PacketPlayInVehicleMove packetplayinvehiclemove) {
+            delegate.a(packetplayinvehiclemove);
+        }
+
+        @Override
+        public void a(PacketPlayInTeleportAccept packetplayinteleportaccept) {
+            delegate.a(packetplayinteleportaccept);
+        }
+
+        @Override
+        public void a(PacketPlayInRecipeDisplayed packetplayinrecipedisplayed) {
+            delegate.a(packetplayinrecipedisplayed);
+        }
+
+        @Override
+        public void a(PacketPlayInAdvancements packetplayinadvancements) {
+            delegate.a(packetplayinadvancements);
+        }
+
+        @Override
+        public void a(PacketPlayInFlying packetplayinflying) {
+            delegate.a(packetplayinflying);
+        }
+
+        @Override
+        public void a(double d0, double d1, double d2, float f, float f1) {
+            delegate.a(d0, d1, d2, f, f1);
+        }
+
+        @Override
+        public void a(double d0, double d1, double d2, float f, float f1, PlayerTeleportEvent.TeleportCause cause) {
+            delegate.a(d0, d1, d2, f, f1, cause);
+        }
+
+        @Override
+        public void a(
+                double d0,
+                double d1,
+                double d2,
+                float f,
+                float f1,
+                Set<PacketPlayOutPosition.EnumPlayerTeleportFlags> set) {
+            delegate.a(d0, d1, d2, f, f1, set);
+        }
+
+        @Override
+        public void a(
+                double d0,
+                double d1,
+                double d2,
+                float f,
+                float f1,
+                Set<PacketPlayOutPosition.EnumPlayerTeleportFlags> set,
+                PlayerTeleportEvent.TeleportCause cause) {
+            delegate.a(d0, d1, d2, f, f1, set, cause);
+        }
+
+        @Override
+        public void teleport(Location dest) {
+            delegate.teleport(dest);
+        }
+
+        @Override
+        public void a(PacketPlayInBlockDig packetplayinblockdig) {
+            delegate.a(packetplayinblockdig);
+        }
+
+        @Override
+        public void a(PacketPlayInUseItem packetplayinuseitem) {
+            delegate.a(packetplayinuseitem);
+        }
+
+        @Override
+        public void a(PacketPlayInBlockPlace packetplayinblockplace) {
+            delegate.a(packetplayinblockplace);
+        }
+
+        @Override
+        public void a(PacketPlayInSpectate packetplayinspectate) {
+            delegate.a(packetplayinspectate);
+        }
+
+        @Override
+        public void a(PacketPlayInResourcePackStatus packetplayinresourcepackstatus) {
+            delegate.a(packetplayinresourcepackstatus);
+        }
+
+        @Override
+        public void a(PacketPlayInBoatMove packetplayinboatmove) {
+            delegate.a(packetplayinboatmove);
+        }
+
+        @Override
+        public void a(IChatBaseComponent ichatbasecomponent) {
+            delegate.a(ichatbasecomponent);
+        }
+
+        @Override
+        public void a(PacketPlayInHeldItemSlot packetplayinhelditemslot) {
+            delegate.a(packetplayinhelditemslot);
+        }
+
+        @Override
+        public void a(PacketPlayInChat packetplayinchat) {
+            delegate.a(packetplayinchat);
+        }
+
+        @Override
+        public void chat(String s, boolean async) {
+            delegate.chat(s, async);
+        }
+
+        @Override
+        public void a(PacketPlayInArmAnimation packetplayinarmanimation) {
+            delegate.a(packetplayinarmanimation);
+        }
+
+        @Override
+        public void a(PacketPlayInEntityAction packetplayinentityaction) {
+            delegate.a(packetplayinentityaction);
+        }
+
+        @Override
+        public void a(PacketPlayInUseEntity packetplayinuseentity) {
+            delegate.a(packetplayinuseentity);
+        }
+
+        @Override
+        public void a(PacketPlayInClientCommand packetplayinclientcommand) {
+            delegate.a(packetplayinclientcommand);
+        }
+
+        @Override
+        public void a(PacketPlayInCloseWindow packetplayinclosewindow) {
+            delegate.a(packetplayinclosewindow);
+        }
+
+        @Override
+        public void a(PacketPlayInWindowClick packetplayinwindowclick) {
+            delegate.a(packetplayinwindowclick);
+        }
+
+        @Override
+        public void a(PacketPlayInAutoRecipe packetplayinautorecipe) {
+            delegate.a(packetplayinautorecipe);
+        }
+
+        @Override
+        public void a(PacketPlayInEnchantItem packetplayinenchantitem) {
+            delegate.a(packetplayinenchantitem);
+        }
+
+        @Override
+        public void a(PacketPlayInSetCreativeSlot packetplayinsetcreativeslot) {
+            delegate.a(packetplayinsetcreativeslot);
+        }
+
+        @Override
+        public void a(PacketPlayInTransaction packetplayintransaction) {
+            delegate.a(packetplayintransaction);
+        }
+
+        @Override
+        public void a(PacketPlayInUpdateSign packetplayinupdatesign) {
+            delegate.a(packetplayinupdatesign);
+        }
+
+        @Override
+        public void a(PacketPlayInKeepAlive packetplayinkeepalive) {
+            delegate.a(packetplayinkeepalive);
+        }
+
+        @Override
+        public void a(PacketPlayInAbilities packetplayinabilities) {
+            delegate.a(packetplayinabilities);
+        }
+
+        @Override
+        public void a(PacketPlayInTabComplete packet) {
+            delegate.a(packet);
+        }
+
+        @Override
+        public void a(PacketPlayInSettings packetplayinsettings) {
+            delegate.a(packetplayinsettings);
+        }
+
+        @Override
+        public void a(PacketPlayInCustomPayload packetplayincustompayload) {
+            delegate.a(packetplayincustompayload);
         }
 
         @Override
@@ -202,7 +458,7 @@ public class BetterTablistSubscriber implements Listener, ContextHolderAware {
                     }
                 }
             }
-            super.sendPacket(packet);
+            delegate.sendPacket(packet);
         }
     }
 }
